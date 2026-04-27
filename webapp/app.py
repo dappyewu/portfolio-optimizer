@@ -23,6 +23,13 @@ from search import search_tickers  # noqa: E402
 st.set_page_config(page_title="Portfolio Optimizer and Back Tester", layout="wide")
 
 # ---------- Session state ----------
+# Drain a "clear search" request before any widgets render — Streamlit
+# disallows modifying a widget's state after it's instantiated in the
+# current run, so we set a flag in the Add handler and clear here.
+if st.session_state.pop("_clear_search", False):
+    st.session_state["search_query"] = ""
+    st.session_state["search_results"] = []
+
 if "holdings" not in st.session_state:
     st.session_state.holdings = {}  # symbol -> {"name": str, "weight": float}
 if "search_results" not in st.session_state:
@@ -102,6 +109,7 @@ with tab_search:
             c2.write(hit.exchange)
             if c3.button("Add", key=f"add_{hit.symbol}"):
                 add_ticker(hit.symbol, hit.name)
+                st.session_state._clear_search = True
                 st.rerun()
 
 with tab_upload:
