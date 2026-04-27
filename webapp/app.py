@@ -84,6 +84,7 @@ st.caption(
     "the last 25% is held out to compare your portfolio against MSR, GMV, and Equal-Weight, "
     "rebalanced once at the split point."
 )
+st.warning("Refreshing or closing this page will clear your portfolio and results. Keep this tab open while you work.")
 
 # --- Build portfolio ---
 st.subheader("1. Build your portfolio")
@@ -91,14 +92,18 @@ st.subheader("1. Build your portfolio")
 tab_search, tab_upload = st.tabs(["Search & add", "Upload CSV"])
 
 with tab_search:
-    col_search, col_action = st.columns([3, 1])
-    with col_search:
-        query = st.text_input("Search by company or ticker (e.g. 'Apple', 'AAPL', 'Microsoft')",
-                              key="search_query")
-    with col_action:
-        st.write("")
-        st.write("")
-        if st.button("Search", use_container_width=True):
+    with st.form("search_form", clear_on_submit=False):
+        col_search, col_action = st.columns([3, 1])
+        with col_search:
+            query = st.text_input(
+                "Search by company or ticker (e.g. 'Apple', 'AAPL', 'Microsoft')",
+                key="search_query",
+            )
+        with col_action:
+            st.write("")
+            st.write("")
+            submitted = st.form_submit_button("Search", use_container_width=True)
+        if submitted:
             st.session_state.search_results = search_tickers(query, max_results=8)
 
     if st.session_state.search_results:
