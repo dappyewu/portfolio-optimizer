@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local data & outputs
+data/processed/
+outputs/
+reports/
+*.docx
+*.pdf
+*.png
+
+# Secrets
+.env
+
+# Local tool / IDE data
+.claude/
+
+# Local data (webapp doesn't need any of it; sample CSV is generated in-app)
+data/
+
+# CLI-only scripts not used by the webapp (kept locally, excluded from repo)
+src/IngestRawData.py
+src/TransformAndLoad.py
+src/wealth.py
+src/wealthcompare.py
+src/ReportGenerator.py
