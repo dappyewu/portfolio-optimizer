@@ -297,6 +297,11 @@ if result is not None:
     test_span_days = (result.test_returns.index[-1] - result.test_returns.index[0]).days
     test_months = max(1, round(test_span_days / 30.44))
     st.subheader(f"Recent performance results if strategy implemented — last {test_months} months")
+    st.caption(
+        f"What each row shows: if you had bought the strategy's allocation at the train/test split "
+        f"({result.split_date.date()}, ~{test_months} months ago) and **held it without rebalancing**, "
+        "this is how it would have performed."
+    )
     st.dataframe(result.stats_table(), use_container_width=True)
     st.caption(
         f"⚠️ Test window is only ~{len(result.test_returns)} trading days. "

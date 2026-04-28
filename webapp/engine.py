@@ -153,14 +153,30 @@ class AnalysisResult:
 
 def _summarize(name: str, weights: np.ndarray, test_returns_df: pd.DataFrame,
                rf: float, initial: float, tickers: list[str]) -> StrategyResult:
-    test_port = test_returns_df @ weights
-    test_port.name = name
+    """Buy-and-hold backtest from a single rebalance at the split point.
 
-    wealth = initial * (1 + test_port).cumprod()
-    # prepend the initial investment one bar before the first test return
-    pre_index = test_port.index[:1] - pd.Timedelta(days=1)
-    seed = pd.Series([initial], index=pre_index)
-    wealth = pd.concat([seed, wealth])
+    On the split date we buy initial * w_i of each asset; thereafter each
+    leg drifts independently (no further rebalancing). Wealth at time t is
+        V(t) = sum_i (initial * w_i) * (P_i(t) / P_i(split))
+    which equals initial * sum_i(w_i * cumulative_growth_i(t)).
+    """
+    # Per-asset cumulative growth from the split (1 on the split date itself)
+    cum = (1 + test_returns_df).cumprod()
+    pre_index = test_returns_df.index[:1] - pd.Timedelta(days=1)
+    pre_row = pd.DataFrame(
+        [np.ones(len(weights))],
+        index=pre_index,
+        columns=test_returns_df.columns,
+    )
+    cum = pd.concat([pre_row, cum])
+
+    wealth_values = initial * (cum.values @ weights)
+    wealth = pd.Series(wealth_values, index=cum.index, name=name)
+
+    # Derive the portfolio's daily returns from the wealth path so that
+    # stats (Sharpe, drawdown, vol) reflect the buy-and-hold dynamics.
+    test_port = wealth.pct_change().dropna()
+    test_port.name = name
 
     ann_ret = rk.annualize_rets(test_port, PERIODS_PER_YEAR)
     ann_vol = rk.annualize_vol(test_port, PERIODS_PER_YEAR)
