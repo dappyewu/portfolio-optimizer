@@ -334,14 +334,15 @@ if result is not None:
         st.plotly_chart(fig_dd, use_container_width=True)
 
     with st.expander("Efficient frontier (training data)", expanded=False):
-        ef = efficient_frontier_points(result.er_train, result.cov_train, n_points=40)
+        # Use arithmetic returns here — same units MSR was optimised against,
+        # so MSR sits exactly on the frontier and the CML passes through it.
+        ef = efficient_frontier_points(result.er_train_arith, result.cov_train, n_points=40)
         fig_ef = go.Figure()
         if not ef.empty:
             fig_ef.add_trace(go.Scatter(x=ef["Volatility"], y=ef["Return"], mode="lines",
                                         name="Frontier"))
-        # Marker points for each strategy (based on training stats)
         import numpy as np
-        er_vals = result.er_train.values
+        er_vals = result.er_train_arith.values
         cov_vals = result.cov_train.values
         for name, s in result.strategies.items():
             w = s.weights
@@ -350,16 +351,20 @@ if result is not None:
             fig_ef.add_trace(go.Scatter(x=[vol], y=[ret], mode="markers+text",
                                         name=name, text=[name], textposition="top center",
                                         marker=dict(size=11)))
-        # Capital market line
+        # Capital market line — extends from rf to and beyond the MSR portfolio
         if not ef.empty:
             msr_w = result.strategies["MSR"].weights
             msr_ret = float(msr_w @ er_vals)
             msr_vol = float(np.sqrt(msr_w @ cov_vals @ msr_w))
             fig_ef.add_trace(go.Scatter(x=[0, msr_vol], y=[result.risk_free_rate, msr_ret],
                                         mode="lines", line=dict(dash="dash"), name="CML"))
-        fig_ef.update_layout(xaxis_title="Volatility (annualised)",
-                             yaxis_title="Return (annualised)", height=450)
+        fig_ef.update_layout(xaxis_title="Volatility (annualised σ)",
+                             yaxis_title="Return (arithmetic mean × 252)", height=450)
         st.plotly_chart(fig_ef, use_container_width=True)
+        st.caption(
+            "Returns plotted as **arithmetic mean × 252** (the input space the MSR optimiser uses). "
+            "This differs slightly from the geometric CAGR shown in the *Expected performance* table by ~½σ²."
+        )
 
     st.caption(
         "Note: training-window MSR weights are not guaranteed to outperform out-of-sample. "

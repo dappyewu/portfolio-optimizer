@@ -108,7 +108,8 @@ class AnalysisResult:
     test_prices: pd.DataFrame
     train_returns: pd.DataFrame
     test_returns: pd.DataFrame
-    er_train: pd.Series
+    er_train: pd.Series           # geometric (CAGR) — used for display tables
+    er_train_arith: pd.Series     # arithmetic (mean*ppy) — used for optimisation + EF chart
     cov_train: pd.DataFrame
     risk_free_rate: float
     split_date: pd.Timestamp
@@ -274,6 +275,7 @@ def run_analysis(
         train_returns=train_returns,
         test_returns=test_returns,
         er_train=er_train,
+        er_train_arith=er_arith,
         cov_train=cov_train,
         risk_free_rate=rf,
         split_date=split_date,
