@@ -58,6 +58,7 @@ def remove_ticker(symbol: str):
 # ---------- Sidebar ----------
 with st.sidebar:
     st.header("Settings")
+    st.caption("Adjust these **before** clicking Run analysis. They control the lookback window and starting capital used in the backtest.")
     years = st.slider("Lookback (years)", min_value=2, max_value=15, value=5, step=1,
                       help="How much history to use. First 75% trains the model, last 25% is the out-of-sample test.")
     initial_investment = st.number_input("Initial investment ($)", min_value=100.0,
@@ -81,8 +82,9 @@ st.title("Portfolio Optimizer and Back Tester")
 st.caption(
     "Add holdings, set weights, then run the analysis. "
     "The first 75% of the price history fits the Maximum Sharpe Ratio (MSR) allocation; "
-    "the last 25% is held out to compare your portfolio against MSR, GMV, and Equal-Weight, "
-    "rebalanced once at the split point."
+    "the last 25% is held out to compare your portfolio against MSR, GMV (Global Minimum Volatility), and Equal-Weight, "
+    "rebalanced once at the split point. "
+    "**Tip:** open the sidebar (top-left ☰ on mobile) to adjust the lookback window and starting capital before running the analysis."
 )
 st.warning("Refreshing or closing this page will clear your portfolio and results. Keep this tab open while you work.")
 
