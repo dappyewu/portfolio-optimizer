@@ -298,6 +298,12 @@ if result is not None:
     test_months = max(1, round(test_span_days / 30.44))
     st.subheader(f"Recent performance results if strategy implemented — last {test_months} months")
     st.dataframe(result.stats_table(), use_container_width=True)
+    st.caption(
+        f"⚠️ Test window is only ~{len(result.test_returns)} trading days. "
+        "The Sharpe 95% CI column shows how uncertain each estimate is — wide intervals "
+        "mean the realised difference between strategies is statistically weak. "
+        "For more reliable conclusions, increase the lookback period in the sidebar."
+    )
 
     # Wealth curve
     st.subheader("Wealth curve over the test window")

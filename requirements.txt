@@ -2,6 +2,7 @@ yfinance
 pandas
 numpy
 scipy
+scikit-learn
 fredapi
 python-dotenv
 streamlit

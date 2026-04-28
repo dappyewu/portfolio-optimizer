@@ -305,14 +305,25 @@ def minimize_vol(target_return, er, cov):
 
 
 
-def msr(riskfree_rate, er, cov):
+def msr(riskfree_rate, er, cov, max_weight=1.0):
     """
     Returns the weights of the portfolio that gives you the maximum sharpe ratio
-    given the riskfree rate and expected returns and a covariance matrix
+    given the riskfree rate and expected returns and a covariance matrix.
+
+    `max_weight` (in [0, 1]) caps any single asset's weight to reduce
+    concentration. If the cap is too tight to satisfy sum-to-1, it is
+    auto-relaxed to 2/n (or 1.0, whichever is smaller).
     """
     n = er.shape[0]
+    # Auto-relax only when the cap makes the problem infeasible:
+    # we need max_weight * n >= 1 to satisfy sum-to-1 with all weights bounded.
+    # If infeasible, relax to ~1/n with a small slack so the optimiser has room.
+    if max_weight * n < 1.0:
+        effective_cap = min(1.0, 1.05 / n)
+    else:
+        effective_cap = min(max_weight, 1.0)
     init_guess = np.repeat(1/n, n)
-    bounds = ((0.0, 1.0),) * n # an N-tuple of 2-tuples!
+    bounds = ((0.0, effective_cap),) * n # an N-tuple of 2-tuples!
     # construct the constraints
     weights_sum_to_1 = {'type': 'eq',
                         'fun': lambda weights: np.sum(weights) - 1
@@ -333,13 +344,13 @@ def msr(riskfree_rate, er, cov):
                        bounds=bounds)
     return weights.x
 
-def gmv(cov):
+def gmv(cov, max_weight=1.0):
     """
     Returns the weights of the Global Minimum Volatility portfolio
-    given a covariance matrix
+    given a covariance matrix. `max_weight` caps any single asset.
     """
     n = cov.shape[0]
-    return msr(0, np.repeat(1, n), cov)
+    return msr(0, np.repeat(1, n), cov, max_weight=max_weight)
 
 def optimal_weights(n_points, er, cov):
     """

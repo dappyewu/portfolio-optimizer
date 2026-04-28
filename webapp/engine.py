@@ -21,14 +21,17 @@ import risk_kit as rk  # noqa: E402
 
 PERIODS_PER_YEAR = 252
 TRAIN_FRACTION = 0.75
+MAX_WEIGHT = 0.30  # cap any single asset in MSR/GMV to reduce concentration
 
 
 # ---------- Risk-free rate ----------
 
 def get_risk_free_rate(start: datetime, end: datetime) -> float:
-    """Average 10y treasury rate over the lookback window, via FRED.
+    """Average 3-month T-bill rate over the lookback window, via FRED.
 
-    Falls back to 0.04 if FRED is unavailable.
+    DTB3 is the conventional risk-free proxy for Sharpe-style calculations
+    (the 10y note carries duration risk). Falls back to 0.04 if FRED is
+    unavailable.
     """
     try:
         from fredapi import Fred
@@ -39,7 +42,7 @@ def get_risk_free_rate(start: datetime, end: datetime) -> float:
         if not api_key:
             return 0.04
         fred = Fred(api_key=api_key)
-        series = fred.get_series_latest_release("GS10") / 100
+        series = fred.get_series_latest_release("DTB3") / 100
         avg = series.loc[start:end].mean()
         if pd.isna(avg):
             return float(series.iloc[-1])
@@ -119,15 +122,27 @@ class AnalysisResult:
         return (df * 100).round(2)
 
     def stats_table(self) -> pd.DataFrame:
-        rows = {
-            name: {
+        rows = {}
+        for name, s in self.strategies.items():
+            n = len(s.test_returns)
+            # Lo (2002) approximation, annualised:
+            # SE(SR_annual) = sqrt((ppy + 0.5 * SR_annual^2) / N)
+            # Derived from SE(SR_period)=sqrt((1+0.5*SR_period^2)/N)
+            # via SR_annual = SR_period * sqrt(ppy).
+            if n > 1 and not np.isnan(s.sharpe):
+                se = np.sqrt((PERIODS_PER_YEAR + 0.5 * s.sharpe ** 2) / n)
+                lo = s.sharpe - 1.96 * se
+                hi = s.sharpe + 1.96 * se
+                ci = f"[{lo:.2f}, {hi:.2f}]"
+            else:
+                ci = "n/a"
+            rows[name] = {
                 "Ann. Return %": round(s.ann_return * 100, 2),
                 "Ann. Volatility %": round(s.ann_vol * 100, 2),
                 "Sharpe": round(s.sharpe, 3),
+                "Sharpe 95% CI": ci,
                 "Max Drawdown %": round(s.max_drawdown * 100, 2),
             }
-            for name, s in self.strategies.items()
-        }
         return pd.DataFrame(rows).T
 
     def wealth_table(self) -> pd.DataFrame:
@@ -199,17 +214,34 @@ def run_analysis(
     train_prices = prices.loc[:split_date].iloc[:-1]
     test_prices = prices.loc[split_date:]
 
+    # Geometric annualised returns — used for *display* (matches "CAGR if held").
     er_train = rk.annualize_rets(train_returns, PERIODS_PER_YEAR)
-    cov_train = train_returns.cov() * PERIODS_PER_YEAR
+
+    # Arithmetic annualised returns — used for *optimisation*. Mean-variance
+    # theory expects arithmetic moments; using geometric (CAGR) tilts MSR
+    # away from volatile assets in a way Markowitz didn't intend.
+    er_arith = train_returns.mean() * PERIODS_PER_YEAR
+
+    # Ledoit-Wolf shrunk covariance — markedly more stable than the raw sample
+    # covariance, especially when the number of assets is large relative to
+    # the number of training rows. Used for both optimisation and display.
+    try:
+        from sklearn.covariance import LedoitWolf
+        shrunk = LedoitWolf().fit(train_returns.values).covariance_
+        cov_train = pd.DataFrame(shrunk * PERIODS_PER_YEAR,
+                                 index=train_returns.columns,
+                                 columns=train_returns.columns)
+    except Exception:
+        cov_train = train_returns.cov() * PERIODS_PER_YEAR  # fallback
 
     rf = get_risk_free_rate(train_returns.index[0].to_pydatetime(),
                             train_returns.index[-1].to_pydatetime())
 
     n_assets = len(kept)
     w_ew = np.repeat(1 / n_assets, n_assets)
-    w_gmv = rk.gmv(cov_train.values)
+    w_gmv = rk.gmv(cov_train.values, max_weight=MAX_WEIGHT)
     w_gmv = w_gmv / w_gmv.sum()
-    w_msr = rk.msr(rf, er_train.values, cov_train.values)
+    w_msr = rk.msr(rf, er_arith.values, cov_train.values, max_weight=MAX_WEIGHT)
     w_msr = w_msr / w_msr.sum()
 
     strategies = {
