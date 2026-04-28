@@ -313,48 +313,48 @@ if result is not None:
     fig_wealth.update_layout(legend_title_text="Strategy", height=450)
     st.plotly_chart(fig_wealth, use_container_width=True)
 
-    # Drawdown
-    st.subheader("Drawdown — Original vs MSR")
-    dd_data = {}
-    for name in ["Original", "MSR"]:
-        s = result.strategies[name]
-        wealth_s = s.wealth
-        peaks = wealth_s.cummax()
-        dd_data[name] = (wealth_s - peaks) / peaks * 100
-    dd_df = pd.DataFrame(dd_data)
-    fig_dd = px.area(dd_df, labels={"value": "Drawdown (%)", "index": "Date",
-                                    "variable": "Strategy"})
-    fig_dd.update_layout(height=350)
-    st.plotly_chart(fig_dd, use_container_width=True)
+    # Further analysis (drawdown + efficient frontier)
+    st.subheader("Further analysis")
+    with st.expander("Drawdown — Original vs MSR", expanded=False):
+        dd_data = {}
+        for name in ["Original", "MSR"]:
+            s = result.strategies[name]
+            wealth_s = s.wealth
+            peaks = wealth_s.cummax()
+            dd_data[name] = (wealth_s - peaks) / peaks * 100
+        dd_df = pd.DataFrame(dd_data)
+        fig_dd = px.area(dd_df, labels={"value": "Drawdown (%)", "index": "Date",
+                                        "variable": "Strategy"})
+        fig_dd.update_layout(height=350)
+        st.plotly_chart(fig_dd, use_container_width=True)
 
-    # Efficient frontier
-    st.subheader("Efficient frontier (training data)")
-    ef = efficient_frontier_points(result.er_train, result.cov_train, n_points=40)
-    fig_ef = go.Figure()
-    if not ef.empty:
-        fig_ef.add_trace(go.Scatter(x=ef["Volatility"], y=ef["Return"], mode="lines",
-                                    name="Frontier"))
-    # Marker points for each strategy (based on training stats)
-    import numpy as np
-    er_vals = result.er_train.values
-    cov_vals = result.cov_train.values
-    for name, s in result.strategies.items():
-        w = s.weights
-        ret = float(w @ er_vals)
-        vol = float(np.sqrt(w @ cov_vals @ w))
-        fig_ef.add_trace(go.Scatter(x=[vol], y=[ret], mode="markers+text",
-                                    name=name, text=[name], textposition="top center",
-                                    marker=dict(size=11)))
-    # Capital market line
-    if not ef.empty:
-        msr_w = result.strategies["MSR"].weights
-        msr_ret = float(msr_w @ er_vals)
-        msr_vol = float(np.sqrt(msr_w @ cov_vals @ msr_w))
-        fig_ef.add_trace(go.Scatter(x=[0, msr_vol], y=[result.risk_free_rate, msr_ret],
-                                    mode="lines", line=dict(dash="dash"), name="CML"))
-    fig_ef.update_layout(xaxis_title="Volatility (annualised)",
-                         yaxis_title="Return (annualised)", height=450)
-    st.plotly_chart(fig_ef, use_container_width=True)
+    with st.expander("Efficient frontier (training data)", expanded=False):
+        ef = efficient_frontier_points(result.er_train, result.cov_train, n_points=40)
+        fig_ef = go.Figure()
+        if not ef.empty:
+            fig_ef.add_trace(go.Scatter(x=ef["Volatility"], y=ef["Return"], mode="lines",
+                                        name="Frontier"))
+        # Marker points for each strategy (based on training stats)
+        import numpy as np
+        er_vals = result.er_train.values
+        cov_vals = result.cov_train.values
+        for name, s in result.strategies.items():
+            w = s.weights
+            ret = float(w @ er_vals)
+            vol = float(np.sqrt(w @ cov_vals @ w))
+            fig_ef.add_trace(go.Scatter(x=[vol], y=[ret], mode="markers+text",
+                                        name=name, text=[name], textposition="top center",
+                                        marker=dict(size=11)))
+        # Capital market line
+        if not ef.empty:
+            msr_w = result.strategies["MSR"].weights
+            msr_ret = float(msr_w @ er_vals)
+            msr_vol = float(np.sqrt(msr_w @ cov_vals @ msr_w))
+            fig_ef.add_trace(go.Scatter(x=[0, msr_vol], y=[result.risk_free_rate, msr_ret],
+                                        mode="lines", line=dict(dash="dash"), name="CML"))
+        fig_ef.update_layout(xaxis_title="Volatility (annualised)",
+                             yaxis_title="Return (annualised)", height=450)
+        st.plotly_chart(fig_ef, use_container_width=True)
 
     st.caption(
         "Note: training-window MSR weights are not guaranteed to outperform out-of-sample. "
